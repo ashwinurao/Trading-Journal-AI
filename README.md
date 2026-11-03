@@ -128,7 +128,7 @@ a key the tab keeps its plain template sentences.
 
 Trading Journal AI is designed as a **local-first application**.
 
-Your trading journal database, imported broker data, notes, and uploaded files are stored locally on your computer. Trading Journal AI does not require an account and does not include telemetry or analytics that send your usage data back to the project. The backend listens on `localhost` only.
+Your trading journal database, imported broker data, notes, and uploaded files are stored locally on your computer. Trading Journal AI does not require an account and does not include telemetry or analytics that send your usage data back to the project. The backend listens on `localhost` only, unless you run it on a home server (see [Running on a home server](#running-on-a-home-server)).
 
 ### What stays local
 
@@ -344,6 +344,19 @@ Adding a dedicated parser for your broker is welcome: open an issue with a sampl
 the account numbers and personal details removed, or send a pull request against
 `backend/csv_parser.py`. Every parser only has to produce execution rows; grouping, duplicate
 detection and P&L are shared.
+
+## Running on a home server
+
+`Dockerfile` and `compose.yaml` run the journal as one container: `backend/server.py` serves the API
+and the built frontend on one port (8771). There is no login page, so publish the port on your LAN
+address only and never to the internet.
+
+1. Put a `.env` next to `compose.yaml` with `LAN_IP` (the server's LAN address), `JOURNAL_DATA` (a
+   folder for the database and uploads) and any keys from the table below.
+2. `docker compose up -d --build`, then open `http://<LAN_IP>:8771`.
+
+The container runs as `99:100` (Unraid's `nobody:users`) and turns the GitHub update check off by
+default (`UPDATE_CHECK=0` in `compose.yaml`).
 
 ## Environment variables
 

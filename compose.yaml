@@ -1,0 +1,22 @@
+# Trading Journal AI on a home server. Settings come from .env next to this file (never committed):
+#   LAN_IP                       the server's LAN address; the port is published there only
+#   JOURNAL_PORT                 port to publish (default 8771)
+#   JOURNAL_DATA                 folder for the journal's database and diary uploads
+#   ANTHROPIC_API_KEY            optional: diary analysis, day review, Brain chat
+#   APCA_API_KEY_ID / APCA_API_SECRET_KEY   optional: Alpaca intraday charts
+# There is no login page: never publish this port to the internet.
+services:
+  trading-journal:
+    build: .
+    image: trading-journal-ai:local
+    container_name: trading-journal-ai
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: ${TZ:-America/New_York}
+      # The fork takes upstream releases by merging them, so the "newer release" notice is noise.
+      UPDATE_CHECK: ${UPDATE_CHECK:-0}
+    ports:
+      - "${LAN_IP:?set LAN_IP in .env}:${JOURNAL_PORT:-8771}:8771"
+    volumes:
+      - ${JOURNAL_DATA:-./data}:/app/data

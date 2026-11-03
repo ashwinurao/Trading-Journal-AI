@@ -29,3 +29,8 @@ backend/uploads/
 
 # once-a-day release check cache
 backend/update_check.json
+
+# home server (compose.yaml) data, and agent scratch files
+data/
+shared-schwab-unused/
+.logs/
