@@ -18,4 +18,13 @@
 - [ ] Database change (existing databases keep working)
 - [ ] None of the above
 
+## Owner's go
+
+<!-- For new dependencies, network calls, money logic or changed test expectations:
+     quote who said yes, when (YYYY-MM-DD) and where. Write "None needed" otherwise. -->
+
+## Before merge
+
+<!-- Latest main merged in, then the test result on that exact head commit (see CLAUDE.md). -->
+
 No real trades, account numbers, `.env` files or databases are included.

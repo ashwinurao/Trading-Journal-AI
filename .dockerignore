@@ -1,0 +1,14 @@
+.git
+.venv
+.logs
+.env
+backend/.env
+**/__pycache__
+**/*.db
+**/*.db-*
+backend/uploads
+backend/update_check.json
+frontend/node_modules
+frontend/build
+data
+docs
