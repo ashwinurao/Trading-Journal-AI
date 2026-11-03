@@ -10,6 +10,9 @@ anything here.
 
 - Stop at the requested scope. No new or upgraded dependencies, new network calls,
   external services, public exposure or new open ports unless the owner asked.
+- The journal never signs in to Schwab. It only reads another app's stored login
+  (`backend/schwab_shared.py`), and only the GET paths in `_ALLOWED_PATHS` leave it.
+  Never write the shared token file, never add order or streamer calls.
 - Money logic is deterministic code, never an LLM. A change to trade grouping,
   P&L, fees or statistics needs a test with hand-worked expected values.
 - Never change an approved test expectation to make a failure go away. If an

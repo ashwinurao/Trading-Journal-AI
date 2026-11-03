@@ -9,3 +9,6 @@ tzdata
 
 # Exit Lab exchange sessions and early closes
 pandas-market-calendars==5.5.0
+
+# Schwab import: reads the shared Schwab login, a Fernet-encrypted schwab-py token file (schwab_shared.py)
+cryptography==50.0.2

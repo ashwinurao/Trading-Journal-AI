@@ -4,6 +4,12 @@
 #   JOURNAL_DATA                 folder for the journal's database and diary uploads
 #   ANTHROPIC_API_KEY            optional: diary analysis, day review, Brain chat
 #   APCA_API_KEY_ID / APCA_API_SECRET_KEY   optional: Alpaca intraday charts
+# Schwab import through another app's login (optional, see "Import from Schwab" in the README):
+#   SHARED_SCHWAB_DIR            folder holding the other app's token file (mounted read-only)
+#   SCHWAB_SHARED_TOKEN_FILE     the file inside the container, e.g. /shared-schwab/token.fernet
+#   SCHWAB_SHARED_TOKEN_KEY      its Fernet key
+#   SCHWAB_SHARED_APP_NAME       that app's name, for "sign in again in ..." messages
+#   SCHWAB_APP_KEY / SCHWAB_APP_SECRET   the same Schwab app, to refresh access tokens
 # There is no login page: never publish this port to the internet.
 services:
   trading-journal:
@@ -20,3 +26,4 @@ services:
       - "${LAN_IP:?set LAN_IP in .env}:${JOURNAL_PORT:-8771}:8771"
     volumes:
       - ${JOURNAL_DATA:-./data}:/app/data
+      - ${SHARED_SCHWAB_DIR:-./shared-schwab-unused}:/shared-schwab:ro
