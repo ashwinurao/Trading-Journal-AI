@@ -54,6 +54,9 @@ export const importApi = {
   uploadDiary: (formData) => api.post('/api/upload-diary', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
+  // Straight from Schwab with another app's shared login (backend/schwab_import.py).
+  schwabStatus: () => api.get('/api/schwab/status'),
+  importSchwab: (body) => api.post('/api/import-schwab', body),
 };
 
 // Leak Finder: the slices of your trading ranked by what they cost (backend/leaks.py).

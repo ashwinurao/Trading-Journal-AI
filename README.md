@@ -156,6 +156,13 @@ The core journal, trade reconstruction, P&L calculations, reports, and statistic
 If you add Alpaca keys, the trade chart and Exit Lab's **Load missing prices** and **Load prices** ask Alpaca for price bars:
 the ticker (plus SPY for Exit Lab) and the date range, nothing about your trades or account.
 
+**Schwab (import from Schwab)**
+
+If you set up [Import from Schwab](#import-from-schwab), the Import page asks Schwab's Trader API
+for your account list and your TRADE transactions for the range you pick. Those requests carry the
+shared login's access token. When that token has run out, the journal asks Schwab's sign-in server
+for a new access token with the shared refresh token. Nothing about your journal is sent.
+
 **Update check (GitHub)**
 
 When the backend starts, it asks GitHub's public releases page whether a newer version exists, at
@@ -345,6 +352,38 @@ the account numbers and personal details removed, or send a pull request against
 `backend/csv_parser.py`. Every parser only has to produce execution rows; grouping, duplicate
 detection and P&L are shared.
 
+## Import from Schwab
+
+The Import page can pull fills straight from Schwab instead of a CSV export. It uses the Schwab
+login of another app you already run (for example OpenVector or Edge Trader for Schwab) and never
+signs in itself. Schwab allows one app per developer and keeps one valid sign-in per app, so a
+second program signing in with the same app key would log the first one out.
+
+The other app must keep its login in a schwab-py token file (Fernet encrypted). Set in `backend/.env`:
+
+| Variable | What it is |
+|---|---|
+| `SCHWAB_SHARED_TOKEN_FILE` | Path to the other app's token file. The journal only reads it, never writes it. |
+| `SCHWAB_SHARED_TOKEN_KEY` | That file's Fernet key. |
+| `SCHWAB_SHARED_APP_NAME` | The other app's name, used in "sign in to Schwab again in ..." messages. |
+| `SCHWAB_APP_KEY` / `SCHWAB_APP_SECRET` | Optional. The same Schwab app's key and secret. With them, the journal refreshes its own access token when the shared one has run out; without them it only works while the other app keeps its token fresh. |
+
+How it works (`backend/schwab_shared.py`, `backend/schwab_import.py`):
+
+- Only two read-only requests are allowed: the account list and TRADE transactions. Anything else
+  is refused before it is sent. No orders, no streamer.
+- The login runs out 7 days after you signed in to the other app. The Import page shows the time
+  left and, when it runs out, says where to sign in again.
+- Fills go through the same trade builder as a CSV import, so grouping, fees and duplicate
+  detection are the same. Importing the same range twice skips the fills already stored.
+- Stocks, ETFs, options and futures are imported. Fills of any other asset type are counted in the
+  result message, not hidden.
+- Schwab returns at most 3000 transactions per request and the journal asks for 30 days at a time.
+  If a request comes back full, nothing is imported and you are asked for a shorter range.
+- Times are converted from UTC to New York time. A Thinkorswim CSV import of the same fills is
+  only recognised as a duplicate when its times match to the second; this is not confirmed for
+  every export, so pick one source per account.
+
 ## Running on a home server
 
 `Dockerfile` and `compose.yaml` run the journal as one container: `backend/server.py` serves the API
@@ -352,7 +391,9 @@ and the built frontend on one port (8771). There is no login page, so publish th
 address only and never to the internet.
 
 1. Put a `.env` next to `compose.yaml` with `LAN_IP` (the server's LAN address), `JOURNAL_DATA` (a
-   folder for the database and uploads) and any keys from the table below.
+   folder for the database and uploads) and any keys from the tables below. For Schwab import, also
+   set `SHARED_SCHWAB_DIR` to the folder holding the other app's token file; it is mounted
+   read-only at `/shared-schwab`, so `SCHWAB_SHARED_TOKEN_FILE` is `/shared-schwab/<file name>`.
 2. `docker compose up -d --build`, then open `http://<LAN_IP>:8771`.
 
 The container runs as `99:100` (Unraid's `nobody:users`) and turns the GitHub update check off by
@@ -376,6 +417,7 @@ Everything is optional; the app runs without any keys and tells you exactly whic
 | `ALPACA_DATA_FEED` | Optional, defaults to `iex` (free-tier data). Set to `sip` only if your key has a paid market-data subscription. |
 | `FRONTEND_ORIGINS` | Optional. Any `localhost`/`127.0.0.1` port is already accepted; add comma-separated origins here only for a frontend served from another host. |
 | `UPDATE_CHECK` | Optional. `0` turns off the once-a-day check for a newer release on GitHub. |
+| `SCHWAB_SHARED_TOKEN_FILE` and friends | Optional. Import from Schwab with another app's login, see [Import from Schwab](#import-from-schwab). |
 
 ## Make it yours with Claude Code
 

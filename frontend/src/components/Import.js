@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Upload, FileText, Image, CheckCircle, AlertCircle } from 'lucide-react';
 import { importApi } from '../api';
 import { PageHeader } from './ui';
+import SchwabImport from './SchwabImport';
 
 // Brokers the backend can parse (keys match csv_parser.BROKER_PARSERS).
 // 'auto' lets the server sniff the format from the file's first lines.
@@ -226,6 +227,8 @@ export default function Import({ accounts, accountId }) {
       <PageHeader title="Import" subtitle="Bring in your broker executions, or have Claude read a trading diary." />
 
       <div className="grid-2">
+
+        <SchwabImport accounts={accounts} accountId={accountId} />
 
         {/* CSV Import */}
         <section className="card">

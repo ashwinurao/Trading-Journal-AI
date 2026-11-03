@@ -34,6 +34,8 @@ from daily_summary import build_daily_context, generate_daily_summary
 from library import router as library_router, init_library_tables, apply_aliases, library_names
 from exitlab.api import router as exitlab_router
 import update_check
+import schwab_import
+import schwab_shared
 
 load_dotenv()
 
@@ -483,6 +485,51 @@ async def import_csv(
         import_tz=get_app_settings(conn)["import_timezone"],
     )
 
+    imported, errors = _store_trades(conn, account_id, trades)
+    return {
+        "imported": imported,
+        "skipped": skipped,
+        "errors": errors,
+        "message": (f"Imported {imported} trade group(s). "
+                    f"Skipped {skipped} duplicate execution(s)."),
+    }
+
+
+class SchwabImportBody(BaseModel):
+    account_id: int
+    schwab_account: str
+    days: int = 30
+
+
+@app.get("/api/schwab/status")
+def schwab_status():
+    """Whether the shared Schwab login works, and which Schwab accounts it sees."""
+    return schwab_import.status()
+
+
+@app.post("/api/import-schwab")
+def import_schwab(body: SchwabImportBody, conn: sqlite3.Connection = Depends(get_connection)):
+    """Pull TRADE transactions from Schwab with the shared login (schwab_shared.py)."""
+    if not conn.execute("SELECT id FROM accounts WHERE id=?", (body.account_id,)).fetchone():
+        raise ValueError(f"Account {body.account_id} not found")
+    try:
+        trades, skipped, left_out = schwab_import.import_trades(
+            body.account_id, body.schwab_account, body.days, conn)
+    except schwab_shared.AuthExpired as e:
+        raise ValueError(str(e)) from None
+    imported, errors = _store_trades(conn, body.account_id, trades)
+    message = (f"Imported {imported} trade group(s) from Schwab. "
+               f"Skipped {skipped} duplicate execution(s).")
+    if left_out:
+        # A journal missing fills must say so (see schwab_import.INSTRUMENT_TYPES).
+        message += " Not imported (asset type the journal does not hold): " + ", ".join(
+            f"{n} {kind}" for kind, n in sorted(left_out.items())) + "."
+    return {"imported": imported, "skipped": skipped, "errors": errors,
+            "left_out": left_out, "message": message}
+
+
+def _store_trades(conn, account_id: int, trades: list[dict]) -> tuple[int, list[dict]]:
+    """Write parsed trades (CSV or Schwab import). Returns (imported, errors)."""
     imported = 0
     errors = []
 
@@ -520,13 +567,7 @@ async def import_csv(
         conn.rollback()
         raise
 
-    return {
-        "imported": imported,
-        "skipped": skipped,
-        "errors": errors,
-        "message": (f"Imported {imported} trade group(s). "
-                    f"Skipped {skipped} duplicate execution(s)."),
-    }
+    return imported, errors
 
 
 # ── Trades ─────────────────────────────────────────────────────────────────────
