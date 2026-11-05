@@ -388,6 +388,36 @@ How it works (`backend/schwab_shared.py`, `backend/schwab_import.py`):
   only recognised as a duplicate when its times match to the second; this is not confirmed for
   every export, so pick one source per account.
 
+## Automatic import from Edge Trader
+
+If you run [Edge Trader for Schwab](https://github.com/ashwinurao/edge-trader-for-schwab), the
+journal can import your fills by itself, about a minute after they happen. Edge Trader already
+reads your fills from Schwab every 10 seconds and serves them read-only at `/api/fills`. The journal
+pulls from there, so it makes no Schwab calls of its own for this and needs no Schwab login.
+
+Set in `backend/.env`:
+
+| Variable | What it is |
+|---|---|
+| `EDGE_TRADER_URL` | Edge Trader's address, e.g. `http://192.168.1.10:8770`. Unset: automatic import is off. |
+| `EDGE_TRADER_ACCOUNT_ID` | The id of the journal account that receives the fills. |
+| `EDGE_TRADER_POLL_S` | Optional. Seconds between pulls, default `60`, at least `15`. |
+| `EDGE_TRADER_FIRST_DAYS` | Optional. Days asked for on the first pull after a start, default `30`, at most `60`. |
+
+How it works (`backend/edge_trader_feed.py`):
+
+- The first pull after a start asks for `EDGE_TRADER_FIRST_DAYS` days. Later pulls ask for the last
+  3 days, the window Edge Trader re-reads from Schwab for late corrections.
+- Fills go through the same path as Import from Schwab, so grouping, fees, P&L and duplicate
+  detection are the same. Fills already in the journal are skipped, including ones imported earlier
+  by hand or from a CSV.
+- When Edge Trader says its fill history is still loading or its fills are not current, nothing
+  is imported. The Import page says why and when the last good pull was.
+- Edge Trader refuses requests for an address it does not know. Add the address the journal uses
+  (e.g. `192.168.1.10:8770`) to `EDGE_TRADER_HOSTS` in Edge Trader's `.env`.
+- A manual import and an automatic one never run at the same time.
+- The Import page shows the last pull and its result, and has a **Pull now** button.
+
 ## Running on a home server
 
 `Dockerfile` and `compose.yaml` run the journal as one container: `backend/server.py` serves the API
@@ -422,6 +452,7 @@ Everything is optional; the app runs without any keys and tells you exactly whic
 | `FRONTEND_ORIGINS` | Optional. Any `localhost`/`127.0.0.1` port is already accepted; add comma-separated origins here only for a frontend served from another host. |
 | `UPDATE_CHECK` | Optional. `0` turns off the once-a-day check for a newer release on GitHub. |
 | `SCHWAB_SHARED_TOKEN_FILE` and friends | Optional. Import from Schwab with another app's login, see [Import from Schwab](#import-from-schwab). |
+| `EDGE_TRADER_URL` and friends | Optional. Import fills automatically from Edge Trader, see [Automatic import from Edge Trader](#automatic-import-from-edge-trader). |
 
 ## Make it yours with Claude Code
 

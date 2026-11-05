@@ -36,6 +36,7 @@ from exitlab.api import router as exitlab_router
 import update_check
 import schwab_import
 import schwab_shared
+import edge_trader_feed
 
 load_dotenv()
 
@@ -52,10 +53,16 @@ async def lifespan(app: FastAPI):
         _conn.close()
     Path(UPLOAD_DIR).mkdir(exist_ok=True)
     update_check.start_background_check()
+    edge_trader.start()     # automatic import, only when EDGE_TRADER_URL is set
     yield
+    edge_trader.stop()
 
 
 app = FastAPI(title="Trading Journal AI API", lifespan=lifespan)
+
+# Fills from Edge Trader, pulled in the background (backend/edge_trader_feed.py).
+edge_trader = edge_trader_feed.Feed(lambda conn, account_id, trades: _store_trades(conn, account_id, trades),
+                                    get_db)
 
 # This runs on your own machine, so any localhost port is accepted: when 3010 is
 # busy the dev server offers 3011, and the app should still work. FRONTEND_ORIGINS
@@ -480,12 +487,12 @@ async def import_csv(
     except UnicodeDecodeError:
         content = raw.decode('latin-1')
 
-    trades, skipped = parse_broker_csv(
-        content, broker, account_id, conn,
-        import_tz=get_app_settings(conn)["import_timezone"],
-    )
-
-    imported, errors = _store_trades(conn, account_id, trades)
+    with edge_trader_feed.IMPORT_LOCK:     # not at the same time as an automatic import
+        trades, skipped = parse_broker_csv(
+            content, broker, account_id, conn,
+            import_tz=get_app_settings(conn)["import_timezone"],
+        )
+        imported, errors = _store_trades(conn, account_id, trades)
     return {
         "imported": imported,
         "skipped": skipped,
@@ -512,12 +519,13 @@ def import_schwab(body: SchwabImportBody, conn: sqlite3.Connection = Depends(get
     """Pull TRADE transactions from Schwab with the shared login (schwab_shared.py)."""
     if not conn.execute("SELECT id FROM accounts WHERE id=?", (body.account_id,)).fetchone():
         raise ValueError(f"Account {body.account_id} not found")
-    try:
-        trades, skipped, left_out = schwab_import.import_trades(
-            body.account_id, body.schwab_account, body.days, conn)
-    except schwab_shared.AuthExpired as e:
-        raise ValueError(str(e)) from None
-    imported, errors = _store_trades(conn, body.account_id, trades)
+    with edge_trader_feed.IMPORT_LOCK:     # not at the same time as an automatic import
+        try:
+            trades, skipped, left_out = schwab_import.import_trades(
+                body.account_id, body.schwab_account, body.days, conn)
+        except schwab_shared.AuthExpired as e:
+            raise ValueError(str(e)) from None
+        imported, errors = _store_trades(conn, body.account_id, trades)
     message = (f"Imported {imported} trade group(s) from Schwab. "
                f"Skipped {skipped} duplicate execution(s).")
     if left_out:
@@ -526,6 +534,19 @@ def import_schwab(body: SchwabImportBody, conn: sqlite3.Connection = Depends(get
             f"{n} {kind}" for kind, n in sorted(left_out.items())) + "."
     return {"imported": imported, "skipped": skipped, "errors": errors,
             "left_out": left_out, "message": message}
+
+
+@app.get("/api/edge-trader/status")
+def edge_trader_status():
+    """Automatic import from Edge Trader: on or off, last pull, and what went wrong."""
+    return edge_trader.status()
+
+
+@app.post("/api/edge-trader/pull")
+def edge_trader_pull():
+    """Pull from Edge Trader now instead of waiting for the next automatic pull."""
+    edge_trader.pull_once()
+    return edge_trader.status()
 
 
 def _store_trades(conn, account_id: int, trades: list[dict]) -> tuple[int, list[dict]]:

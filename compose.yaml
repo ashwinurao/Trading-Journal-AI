@@ -10,6 +10,9 @@
 #   SCHWAB_SHARED_TOKEN_KEY      its Fernet key
 #   SCHWAB_SHARED_APP_NAME       that app's name, for "sign in again in ..." messages
 #   SCHWAB_APP_KEY / SCHWAB_APP_SECRET   the same Schwab app, to refresh access tokens
+# Automatic import from Edge Trader (optional, see "Automatic import from Edge Trader" in the README):
+#   EDGE_TRADER_URL              e.g. http://192.168.1.10:8770 (add that host:port to Edge Trader's EDGE_TRADER_HOSTS)
+#   EDGE_TRADER_ACCOUNT_ID       the journal account that receives the fills
 # There is no login page: never publish this port to the internet.
 services:
   trading-journal:
