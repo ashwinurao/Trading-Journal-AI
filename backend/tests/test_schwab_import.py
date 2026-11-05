@@ -263,3 +263,48 @@ def test_status_shows_accounts_by_last_four_digits_only(shared, monkeypatch):
     st = schwab_import.status(get=lambda p: [{"accountNumber": "12345678", "hashValue": "H1"}])
     assert st["ok"] and st["accounts"] == [{"hash": "H1", "label": "Schwab ...5678"}]
     assert "12345678" not in json.dumps(st)
+
+
+# ── Fill ids: twin fills that arrive in two imports ───────────────────────────
+# One order sold in two identical pieces: same second, size and price, two Schwab
+# activityIds. Automatic imports can see the first piece before the second.
+
+TWIN_BUY = txn(21, "2026-09-15T13:46:16+0000", leg("TSLA", "EQUITY", 200, 250.00, -50000.00))
+TWIN_A = txn(22, "2026-09-15T13:50:48+0000", fee(-0.75), leg("TSLA", "EQUITY", -100, 250.50, 25050.00))
+TWIN_B = txn(23, "2026-09-15T13:50:48+0000", fee(-0.75), leg("TSLA", "EQUITY", -100, 250.50, 25050.00))
+
+
+def _import(client, monkeypatch, txns):
+    monkeypatch.setattr(schwab_import, "fetch_transactions", lambda h, d, **kw: txns)
+    r = client.post("/api/import-schwab", json={"account_id": 1, "schwab_account": "ABC123", "days": 7})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_fill_id_is_schwab_activity_id_and_leg():
+    ex, _ = schwab_import.executions_from_transactions([TWIN_A])
+    assert [e["fill_id"] for e in ex] == ["schwab:22:1"]
+
+
+def test_identical_twin_fill_in_a_later_import_is_kept(client, monkeypatch):
+    first = _import(client, monkeypatch, [TWIN_BUY, TWIN_A])
+    assert first["imported"] == 1
+    second = _import(client, monkeypatch, [TWIN_BUY, TWIN_A, TWIN_B])
+    assert second["skipped"] == 2              # the buy and the first piece, by fill id
+    rows = sqlite3.connect(client.db).execute(
+        "SELECT trade_group, side, gross_pnl, net_pnl, commissions, executions FROM trades").fetchall()
+    assert len(rows) == 1
+    group, side, gross, net, fees, execs = rows[0]
+    # 200 x (250.50 - 250.00) = 100.00 gross, fees 0.75 + 0.75 = 1.50, net 98.50
+    assert (group, side, gross, net, fees) == ("2026-09-15_TSLA_STOCK_1", "LONG", 100.0, 98.5, 1.5)
+    assert sorted(e["fill_id"] for e in json.loads(execs)) == ["schwab:21:1", "schwab:22:1", "schwab:23:1"]
+
+
+def test_fill_stored_without_an_id_is_not_doubled_by_the_same_fill_with_one(client, monkeypatch):
+    # Trades imported before fill ids (or from a CSV) carry no id: match them by fingerprint.
+    no_ids = [dict(t, activityId=None) for t in STOCK_DAY]
+    assert _import(client, monkeypatch, no_ids)["imported"] == 1
+    again = _import(client, monkeypatch, STOCK_DAY)
+    assert (again["imported"], again["skipped"]) == (0, 2)
+    (net,), = sqlite3.connect(client.db).execute("SELECT net_pnl FROM trades").fetchall()
+    assert net == 49.25

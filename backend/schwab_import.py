@@ -75,6 +75,7 @@ def executions_from_transactions(txns: list[dict]) -> tuple[list[dict], dict[str
                    if (i.get("instrument") or {}).get("assetType") == "CURRENCY")
         when = datetime.strptime(t["time"], "%Y-%m-%dT%H:%M:%S%z").astimezone(ET)
         first = True
+        leg = 0
         for it in items:
             ins = it.get("instrument") or {}
             kind = ins.get("assetType")
@@ -94,6 +95,7 @@ def executions_from_transactions(txns: list[dict]) -> tuple[list[dict], dict[str
             if not instr or not fields or not fields["ticker"]:
                 left_out[kind] = left_out.get(kind, 0) + 1
                 continue
+            leg += 1
             action = "BOT" if qty > 0 else "SOLD"
             cost = float(it.get("cost") or 0)
             amount = cost if cost else (-1 if qty > 0 else 1) * abs(qty) * price
@@ -110,6 +112,8 @@ def executions_from_transactions(txns: list[dict]) -> tuple[list[dict], dict[str
                 "amount": round(amount, 2),
                 "commission": round(abs(min(fees, 0.0)), 2) if first else 0.0,
                 "raw_description": f"{action} {_qty(abs(qty))} {ins.get('symbol')} @{price} (Schwab)",
+                # Schwab's id for the fill, so a later import knows it (csv_parser.get_existing_fill_keys).
+                **({"fill_id": f"schwab:{t['activityId']}:{leg}"} if t.get("activityId") is not None else {}),
             })
             first = False
     return out, left_out

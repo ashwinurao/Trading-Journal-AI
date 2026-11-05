@@ -376,6 +376,10 @@ How it works (`backend/schwab_shared.py`, `backend/schwab_import.py`):
   left and, when it runs out, says where to sign in again.
 - Fills go through the same trade builder as a CSV import, so grouping, fees and duplicate
   detection are the same. Importing the same range twice skips the fills already stored.
+  Each Schwab fill keeps Schwab's own id (its activityId), and a later import matches on that id.
+  So two identical fills (same second, size and price, one order filled in pieces) are both kept
+  even when they arrive in different imports. Fills stored without an id, from a CSV or from an
+  import before 2026-11-05, are still matched by date, time, ticker, side, size and price.
 - Stocks, ETFs, options and futures are imported. Fills of any other asset type are counted in the
   result message, not hidden.
 - Schwab returns at most 3000 transactions per request and the journal asks for 30 days at a time.
