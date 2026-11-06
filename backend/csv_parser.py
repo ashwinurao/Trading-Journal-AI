@@ -517,14 +517,17 @@ def aggregate_executions(fills: list[dict]) -> dict:
     # Serialize executions (drop 'amount' internal field, keep display fields)
     execs = []
     for f in fills:
-        execs.append({
+        e = {
             'date': f.get('iso_date', f.get('date', '')),
             'time': f.get('time', ''),
             'action': f.get('action', ''),
             'qty': f.get('qty', 0),
             'price': f.get('price', 0.0),
             'commission': f.get('commission', 0.0),
-        })
+        }
+        if f.get('fill_id'):
+            e['fill_id'] = f['fill_id']     # broker's own id, see get_existing_fill_keys
+        execs.append(e)
 
     return {
         'side': side,
@@ -697,6 +700,36 @@ def execution_fingerprint(exec_dict: dict) -> str:
     """Create a unique key for duplicate detection. Uses iso_date so it matches stored executions."""
     date = exec_dict.get('iso_date') or exec_dict.get('date', '')
     return f"{date}|{exec_dict.get('time','')}|{exec_dict.get('ticker','')}|{exec_dict.get('action','')}|{exec_dict.get('qty','')}|{exec_dict.get('price','')}"
+
+
+def get_existing_fill_keys(conn, account_id: int) -> tuple[set[str], set[str], set[str]]:
+    """(broker fill ids, fingerprints of fills stored without an id, all fingerprints).
+
+    Two fills can share date, second, ticker, side, size and price (one order filled in
+    pieces). Within one import both are kept, but when they arrive in two imports the second
+    one used to match the first's fingerprint and was dropped. Automatic imports from Edge
+    Trader (every minute) make that likely, so fills that carry the broker's own id
+    (Schwab activityId, schwab_import.py) are matched on the id. A fill with an id still
+    matches a stored fill without one by fingerprint, so trades imported from a CSV or
+    before ids were kept are not doubled.
+    """
+    ids: set[str] = set()
+    no_id: set[str] = set()
+    every: set[str] = set()
+    for row in conn.execute("SELECT ticker, executions FROM trades WHERE account_id = ?", (account_id,)):
+        ticker = row[0] or ''
+        try:
+            execs = json.loads(row[1] or '[]')
+        except Exception:
+            continue
+        for e in execs:
+            fp = f"{e.get('date','')}|{e.get('time','')}|{ticker}|{e.get('action','')}|{e.get('qty','')}|{e.get('price','')}"
+            every.add(fp)
+            if e.get('fill_id'):
+                ids.add(str(e['fill_id']))
+            else:
+                no_id.add(fp)
+    return ids, no_id, every
 
 
 def get_existing_fingerprints(conn, account_id: int) -> set[str]:
@@ -873,6 +906,7 @@ def _rebuild_fill_from_db_exec(e: dict, trade_meta: dict) -> dict:
         'time': e.get('time', ''),
         'amount': round(amount, 2),
         'commission': e.get('commission', 0.0),
+        **({'fill_id': e['fill_id']} if e.get('fill_id') else {}),
     }
 
 
@@ -1019,12 +1053,15 @@ def build_trades_from_executions(all_executions: list[dict], account_id: int, co
 
     # DB-level dedup only — never dedupe within same file (Thinkorswim legitimately
     # emits identical time/price/qty fills for large split orders)
-    existing_fps = get_existing_fingerprints(conn, account_id) if conn else set()
+    stored_ids, stored_no_id, stored_fps = (get_existing_fill_keys(conn, account_id)
+                                            if conn else (set(), set(), set()))
     skipped = 0
     unique_executions = []
     for exec_dict in all_executions:
         fp = execution_fingerprint(exec_dict)
-        if fp in existing_fps:
+        fid = exec_dict.get('fill_id')
+        dup = (str(fid) in stored_ids or fp in stored_no_id) if fid else fp in stored_fps
+        if dup:
             skipped += 1
         else:
             # Enrich with ticker/date for serialization
