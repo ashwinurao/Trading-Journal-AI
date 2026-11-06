@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Download, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { importApi } from '../api';
+import EdgeTraderAuto from './EdgeTraderAuto';
 
 // Import fills straight from Schwab with another app's stored login
 // (backend/schwab_shared.py). The journal never signs in itself: Schwab keeps one
@@ -62,6 +63,8 @@ export default function SchwabImport({ accounts, accountId }) {
         <Download size={18} color="var(--accent-line)" aria-hidden="true" />
         Import from Schwab
       </h2>
+
+      <EdgeTraderAuto accounts={accounts} />
 
       {checking && <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Checking the Schwab login...</div>}
 

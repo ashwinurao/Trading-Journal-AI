@@ -57,6 +57,8 @@ export const importApi = {
   // Straight from Schwab with another app's shared login (backend/schwab_import.py).
   schwabStatus: () => api.get('/api/schwab/status'),
   importSchwab: (body) => api.post('/api/import-schwab', body),
+  edgeTraderStatus: () => api.get('/api/edge-trader/status'),
+  edgeTraderPull: () => api.post('/api/edge-trader/pull'),
 };
 
 // Leak Finder: the slices of your trading ranked by what they cost (backend/leaks.py).
