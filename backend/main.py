@@ -5,6 +5,7 @@ import threading
 import aiofiles
 from pathlib import Path
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Query
@@ -1443,8 +1444,12 @@ async def get_chart(
         start_day = trade_day - timedelta(days=days_back - 1)
         params = {
             "timeframe": tf,
-            "start": f"{start_day.isoformat()}T09:30:00-04:00",
-            "end": f"{date}T16:00:00-04:00",
+            # New York time with each day's own offset: a fixed -04:00 missed the
+            # last trading hour from November to March (EST is UTC-5).
+            "start": datetime.combine(start_day, datetime.min.time().replace(hour=9, minute=30),
+                                      ZoneInfo("America/New_York")).isoformat(),
+            "end": datetime.combine(trade_day, datetime.min.time().replace(hour=16),
+                                    ZoneInfo("America/New_York")).isoformat(),
             "limit": 1000,
             "feed": ALPACA_DATA_FEED,
             "adjustment": "raw",
