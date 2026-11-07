@@ -32,6 +32,11 @@ anything here.
   `frontend/`, plus a screenshot from a real browser.
 - A fix comes with a test that fails without it.
 - Keep scratch artifacts in the ignored `.logs/` folder.
+- GitHub checks (Ash, project thread, 2026-11-07): `.github/workflows/docker.yml` runs
+  the backend tests inside `python:3.11-slim` (the Dockerfile's API base) and builds the
+  server image, frontend included, on every PR and push to `main`. Upstream's `ci.yml`
+  runs too, with the frontend tests. Do not merge on a red check. GitHub-hosted machines
+  only: this repo is public, so it never gets a self-hosted runner.
 
 ## Branches and pull requests
 
@@ -57,7 +62,7 @@ recommended option only where it is reversible and not protected.
 - New or upgraded dependencies, new network calls or external services
   (including an Anthropic or Alpaca key on the server).
 - Anything on the live server beyond the standard pull and rebuild of `main`.
-- Turning on GitHub-hosted CI for the fork.
+- New workflows that deploy, use secrets or run on a self-hosted runner.
 
 ## Style
 
