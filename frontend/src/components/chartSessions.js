@@ -1,6 +1,7 @@
-// Extended-hours shading and day lines for the intraday trade chart
-// (Ash, 2026-11-07: "pre-market and post market hours shaded darker" and
-// "a standard way to differentiate between days"; same look as Edge Scanner PR #29).
+// Regular-hours shading and day lines for the intraday trade chart
+// (Ash, 2026-11-07: "a standard way to differentiate between days", and later the
+// same day "extended hours to be lighter and rth to be darker"; same look as
+// Edge Scanner PRs #29 and #31).
 
 const ET = 'America/New_York';
 const etFmt = new Intl.DateTimeFormat('en-US', {
@@ -24,10 +25,10 @@ export function toEtWallTs(isoUtcStr) {
 const RTH_FROM = 9 * 60 + 30;
 const RTH_TO = 16 * 60;
 
-/** Split ET-shifted bar times (sorted, oldest first) into runs of extended-hours
+/** Split ET-shifted bar times (sorted, oldest first) into runs of regular-hours
  *  bars ([first, last] indexes) and the indexes where a new ET day starts. */
 export function sessionMarks(times) {
-  const extRuns = [];
+  const rthRuns = [];
   const dayStarts = [];
   let runStart = -1;
   let prevDay = null;
@@ -37,18 +38,18 @@ export function sessionMarks(times) {
     if (i > 0 && day !== prevDay) dayStarts.push(i);
     prevDay = day;
     const minute = d.getUTCHours() * 60 + d.getUTCMinutes();
-    if (minute < RTH_FROM || minute >= RTH_TO) {
+    if (minute >= RTH_FROM && minute < RTH_TO) {
       if (runStart < 0) runStart = i;
     } else if (runStart >= 0) {
-      extRuns.push([runStart, i - 1]);
+      rthRuns.push([runStart, i - 1]);
       runStart = -1;
     }
   });
-  if (runStart >= 0) extRuns.push([runStart, times.length - 1]);
-  return { extRuns, dayStarts };
+  if (runStart >= 0) rthRuns.push([runStart, times.length - 1]);
+  return { rthRuns, dayStarts };
 }
 
-/** A series primitive that paints the extended-hours bands and dashed day lines
+/** A series primitive that paints the regular-hours bands and dashed day lines
  *  behind the candles. Bar indexes are the chart's logical indexes, so the
  *  candle series must hold every bar the marks were built from. */
 export class SessionPrimitive {
@@ -74,11 +75,11 @@ export class SessionPrimitive {
     const x1 = ts.logicalToCoordinate(1);
     if (x0 == null || x1 == null) return;
     const edge = i => x0 + (i - 0.5) * (x1 - x0);
-    const { extRuns, dayStarts } = this._marks;
+    const { rthRuns, dayStarts } = this._marks;
     target.useBitmapCoordinateSpace(({ context: ctx, bitmapSize, horizontalPixelRatio: hpr, verticalPixelRatio: vpr }) => {
       const width = bitmapSize.width / hpr;
-      ctx.fillStyle = this._colors.ext;
-      for (const [a, b] of extRuns) {
+      ctx.fillStyle = this._colors.rth;
+      for (const [a, b] of rthRuns) {
         const from = edge(a), to = edge(b + 1);
         if (to < 0 || from > width) continue;
         const left = Math.round(from * hpr);

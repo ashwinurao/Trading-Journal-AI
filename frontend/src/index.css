@@ -25,9 +25,9 @@
   --divider: #303B4B;
   --divider-soft: #262F3D;
   --divider-strong: #3C4A5E;
-  /* trade chart (components/chartSessions.js): wash over pre-market and after-hours,
-     dashed line at each new day */
-  --chart-ext: rgba(0, 0, 0, 0.32);
+  /* trade chart (components/chartSessions.js): wash over regular hours, so extended
+     hours read lighter, and a dashed line at each new day */
+  --chart-rth: rgba(0, 0, 0, 0.32);
   --chart-dayline: #4D5B70;
 
   /* ---- Actions & emphasis ---- */
