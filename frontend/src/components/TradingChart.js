@@ -27,7 +27,7 @@ function chartTheme() {
     vwap: cssVar('--text-secondary', '#96A4B6'),
     stop: cssVar('--caution', '#E9BA78'),
     target: cssVar('--accent-line', '#91A8FF'),
-    ext: cssVar('--chart-ext', 'rgba(0, 0, 0, 0.32)'),
+    rth: cssVar('--chart-rth', 'rgba(0, 0, 0, 0.32)'),
     dayLine: cssVar('--chart-dayline', '#4D5B70'),
   };
 }
@@ -226,9 +226,9 @@ export default function TradingChart({
     }));
     candleSeries.setData(candleData);
     layersRef.current.candles = candleSeries;
-    // Darker pre-market and after-hours, dashed line at each new day (intraday only).
+    // Darker regular hours, so extended hours read lighter, and a dashed line at each new day (intraday only).
     if (!isWide) {
-      candleSeries.attachPrimitive(new SessionPrimitive(sessionMarks(candleData.map(c => c.time)), { ext: T.ext, dayLine: T.dayLine }));
+      candleSeries.attachPrimitive(new SessionPrimitive(sessionMarks(candleData.map(c => c.time)), { rth: T.rth, dayLine: T.dayLine }));
     }
 
     // ── VWAP line ─────────────────────────────────────────────────────────

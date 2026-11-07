@@ -16,20 +16,20 @@ describe('toEtWallTs', () => {
 });
 
 describe('sessionMarks', () => {
-  test('one day with extended hours: pre-market and after-hours are separate runs', () => {
+  test('one day with extended hours: regular hours are one run', () => {
     const t = ['04:00', '09:29', '09:30', '15:59', '16:00', '19:59'].map(h => wall(`2026-11-05T${h}:00`));
-    // 09:30 and 15:59 are regular hours and must NOT be shaded.
-    expect(sessionMarks(t)).toEqual({ extRuns: [[0, 1], [4, 5]], dayStarts: [] });
+    // 09:29 and 16:00 are extended hours and must NOT be shaded.
+    expect(sessionMarks(t)).toEqual({ rthRuns: [[2, 3]], dayStarts: [] });
   });
-  test('after-hours runs into the next pre-market; the day line falls on 04:00', () => {
+  test('each regular session is its own run; the day line falls on 04:00', () => {
     const t = [wall('2026-11-05T15:59:00'), wall('2026-11-05T16:00:00'), wall('2026-11-06T04:00:00'), wall('2026-11-06T09:30:00')];
-    expect(sessionMarks(t)).toEqual({ extRuns: [[1, 2]], dayStarts: [2] });
+    expect(sessionMarks(t)).toEqual({ rthRuns: [[0, 0], [3, 3]], dayStarts: [2] });
   });
-  test('regular hours only: no shading, the day line falls on 09:30', () => {
+  test('regular hours only: every bar is shaded, the day line falls on 09:30', () => {
     const t = [wall('2026-11-05T15:55:00'), wall('2026-11-06T09:30:00')];
-    expect(sessionMarks(t)).toEqual({ extRuns: [], dayStarts: [1] });
+    expect(sessionMarks(t)).toEqual({ rthRuns: [[0, 1]], dayStarts: [1] });
   });
   test('no bars: nothing to draw', () => {
-    expect(sessionMarks([])).toEqual({ extRuns: [], dayStarts: [] });
+    expect(sessionMarks([])).toEqual({ rthRuns: [], dayStarts: [] });
   });
 });

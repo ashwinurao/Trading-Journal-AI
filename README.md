@@ -226,8 +226,8 @@ setup you tagged. Click any row to open the full trade.
 **Trade Details.** The executions on one trade, the planned and realized R, the stop and target you
 wrote before entry, and an intraday chart with your fills marked on it. Charts open on the trade
 day's session; the legend entries switch layers on and off. Intraday charts load 04:00-20:00 New
-York time: pre-market and after-hours bars sit on a darker band, and a dashed line marks the start
-of each day.
+York time: regular-hours bars sit on a darker band, so pre-market and after-hours read lighter, and
+a dashed line marks the start of each day.
 
 ![Trade Details: executions, R-multiple, stop and target, and an intraday chart with fills](docs/screenshot-trade-detail.png)
 
