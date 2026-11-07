@@ -5,6 +5,9 @@
 The window used to be built with a fixed -04:00 offset (daylight time). From the first
 Sunday of November New York is UTC-5, so the chart asked Alpaca for 08:30-15:00 ET and
 missed the last trading hour.
+
+Since 2026-11-07 the window is 04:00-20:00 ET, so pre-market and after-hours bars come
+back for the chart to shade (Ash, project thread, "Shade extended hours on charts").
 """
 import sys
 from pathlib import Path
@@ -41,14 +44,14 @@ def chart(tmp_path, monkeypatch):
 
 
 def test_winter_day_uses_eastern_standard_time(chart):
-    # 2026-11-05 is EST (UTC-5): 09:30-16:00 ET is 14:30-21:00 UTC.
-    assert chart("/api/chart/SPY/2026-11-05") == ("2026-11-05T09:30:00-05:00", "2026-11-05T16:00:00-05:00")
+    # 2026-11-05 is EST (UTC-5): 04:00-20:00 ET is 09:00 UTC to 01:00 UTC the next day.
+    assert chart("/api/chart/SPY/2026-11-05") == ("2026-11-05T04:00:00-05:00", "2026-11-05T20:00:00-05:00")
 
 
 def test_summer_day_uses_eastern_daylight_time(chart):
-    assert chart("/api/chart/SPY/2026-09-15") == ("2026-09-15T09:30:00-04:00", "2026-09-15T16:00:00-04:00")
+    assert chart("/api/chart/SPY/2026-09-15") == ("2026-09-15T04:00:00-04:00", "2026-09-15T20:00:00-04:00")
 
 
 def test_zoomed_out_window_across_the_clock_change_uses_each_days_offset(chart):
     # 5 days back from Tuesday 2026-11-03 starts on Friday 2026-10-30, still daylight time.
-    assert chart("/api/chart/SPY/2026-11-03?days_back=5") == ("2026-10-30T09:30:00-04:00", "2026-11-03T16:00:00-05:00")
+    assert chart("/api/chart/SPY/2026-11-03?days_back=5") == ("2026-10-30T04:00:00-04:00", "2026-11-03T20:00:00-05:00")

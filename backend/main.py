@@ -1446,9 +1446,11 @@ async def get_chart(
             "timeframe": tf,
             # New York time with each day's own offset: a fixed -04:00 missed the
             # last trading hour from November to March (EST is UTC-5).
-            "start": datetime.combine(start_day, datetime.min.time().replace(hour=9, minute=30),
+            # 04:00-20:00 ET takes in pre-market and after-hours, which the chart
+            # shades darker (Ash, 2026-11-07); it still opens on 09:30-16:00.
+            "start": datetime.combine(start_day, datetime.min.time().replace(hour=4),
                                       ZoneInfo("America/New_York")).isoformat(),
-            "end": datetime.combine(trade_day, datetime.min.time().replace(hour=16),
+            "end": datetime.combine(trade_day, datetime.min.time().replace(hour=20),
                                     ZoneInfo("America/New_York")).isoformat(),
             "limit": 1000,
             "feed": ALPACA_DATA_FEED,
