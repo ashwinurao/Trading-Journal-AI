@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createChart, ColorType, CrosshairMode, LineStyle } from 'lightweight-charts';
 import { chartApi } from '../api';
+import { SessionPrimitive, sessionMarks, toEtWallTs } from './chartSessions';
 
 // lightweight-charts paints to canvas and cannot resolve CSS var(), so colours
 // are read from the design tokens at render time. Fallbacks are the token values.
@@ -26,18 +27,17 @@ function chartTheme() {
     vwap: cssVar('--text-secondary', '#96A4B6'),
     stop: cssVar('--caution', '#E9BA78'),
     target: cssVar('--accent-line', '#91A8FF'),
+    ext: cssVar('--chart-ext', 'rgba(0, 0, 0, 0.32)'),
+    dayLine: cssVar('--chart-dayline', '#4D5B70'),
   };
 }
 
 // lightweight-charts always renders its axis and crosshair labels using UTC getters,
 // with no timezone option. Alpaca's bars come back as true UTC ("...T14:07:00Z" for
 // 10:07 ET), so feeding them straight in shows UTC hours on the axis while execution
-// times are already stored as ET wall-clock. Fix: shift bar timestamps by the market's
-// UTC offset so the "UTC" the library reads back out is actually ET. Hardcoded to EDT
-// (UTC-4) for now, matching the rest of this file — no winter DST handling yet.
-const ET_UTC_OFFSET_SEC = 4 * 3600;
-
-const toTs = (isoUtcStr) => Math.floor(new Date(isoUtcStr).getTime() / 1000) - ET_UTC_OFFSET_SEC;
+// times are already stored as ET wall-clock. toEtWallTs shifts each bar by New York's
+// offset on that bar's date (chartSessions.js), so the "UTC" read back out is ET.
+const toTs = toEtWallTs;
 
 // Daily/weekly bars are stamped at session open, already whole calendar days —
 // no ET/UTC shift needed there, just a straight epoch conversion.
@@ -226,6 +226,10 @@ export default function TradingChart({
     }));
     candleSeries.setData(candleData);
     layersRef.current.candles = candleSeries;
+    // Darker pre-market and after-hours, dashed line at each new day (intraday only).
+    if (!isWide) {
+      candleSeries.attachPrimitive(new SessionPrimitive(sessionMarks(candleData.map(c => c.time)), { ext: T.ext, dayLine: T.dayLine }));
+    }
 
     // ── VWAP line ─────────────────────────────────────────────────────────
     // Alpaca's per-bar `vw` is just that bar's own volume-weighted price, which
